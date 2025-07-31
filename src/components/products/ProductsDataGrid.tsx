@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Box } from '@mui/material';
 import { DataType, ColumnRegular, RevoGrid } from '@revolist/react-datagrid';
 import { IProductResponse } from '@/schemas/products';
@@ -8,7 +9,7 @@ interface Props {
   onDelete: (id: string) => void;
 }
 
-const ProductsDataGrid = ({ rows, onEdit, onDelete }: Props) => {
+const ProductsDataGrid = memo(({ rows, onEdit, onDelete }: Props) => {
   const data: DataType[] = [...rows];
 
   const columns: ColumnRegular[] = [
@@ -32,7 +33,7 @@ const ProductsDataGrid = ({ rows, onEdit, onDelete }: Props) => {
             style: { cursor: 'pointer', color: '#5f6368', marginRight: '8px' },
             onClick: () => onEdit(props.model as IProductResponse),
           },
-          'edit'
+          'editar'
         );
         const deleteButton = createElement(
           'i',
@@ -41,7 +42,7 @@ const ProductsDataGrid = ({ rows, onEdit, onDelete }: Props) => {
             style: { cursor: 'pointer', color: '#d93025' },
             onClick: () => onDelete(props.model.id),
           },
-          'delete'
+          'eliminar'
         );
         return createElement(
           'div',
@@ -71,6 +72,6 @@ const ProductsDataGrid = ({ rows, onEdit, onDelete }: Props) => {
       />
     </Box>
   );
-};
+});
 
 export default ProductsDataGrid;

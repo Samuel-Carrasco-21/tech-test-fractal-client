@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 
+import SearchBox from '@/components/SearchBox';
 import ProductsDataGrid from '@/components/products/ProductsDataGrid';
 import ProductFormModal from '@/components/products/ProductFormModal';
 import ConfirmationModal from '@/components/ConfirmationModal';
@@ -18,16 +19,15 @@ import {
 const ProductsPage = () => {
   const dispatch = useAppDispatch();
 
-  // State from Redux
   const products = useAppSelector(selectAllProducts);
   const status = useAppSelector(selectProductsStatus);
 
-  // Local state for modals
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<IProductResponse | null>(
     null
   );
   const [deleteModal, setDeleteModal] = useState({ open: false, id: '' });
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (status === 'idle') {
@@ -35,36 +35,47 @@ const ProductsPage = () => {
     }
   }, [status, dispatch]);
 
-  // --- Handlers ---
-  const handleOpenAddModal = () => {
+  // --- Handlers memoizados ---
+  const handleOpenAddModal = useCallback(() => {
     setProductToEdit(null);
     setFormModalOpen(true);
-  };
+  }, []);
 
-  const handleOpenEditModal = (product: IProductResponse) => {
+  const handleOpenEditModal = useCallback((product: IProductResponse) => {
     setProductToEdit(product);
     setFormModalOpen(true);
-  };
+  }, []);
 
-  const handleSave = (data: { name: string; unitPrice: number }) => {
-    if (productToEdit) {
-      // Update existing product
-      dispatch(() => updateProduct(productToEdit.id, { ...data }));
-    } else {
-      // Create new product
-      dispatch(addNewProduct(data));
-    }
-    window.location.reload();
-  };
+  const handleSave = useCallback(
+    (data: { name: string; unitPrice: number }) => {
+      if (productToEdit) {
+        dispatch(() => updateProduct(productToEdit.id, { ...data }));
+      } else {
+        dispatch(addNewProduct(data));
+      }
+      window.location.reload();
+    },
+    [dispatch, productToEdit]
+  );
 
-  const handleDeleteClick = (id: string) => {
+  const handleDeleteClick = useCallback((id: string) => {
     setDeleteModal({ open: true, id });
-  };
+  }, []);
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = useCallback(() => {
     dispatch(() => deleteProduct(deleteModal.id));
     setDeleteModal({ open: false, id: '' });
-  };
+    window.location.reload();
+  }, [deleteModal.id, dispatch]);
+
+  const filteredProducts = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return products.filter(product =>
+      product.name.toLowerCase().includes(term)
+    );
+  }, [products, searchTerm]);
+
+  const handleSearch = useCallback((value: string) => setSearchTerm(value), []);
 
   return (
     <>
@@ -87,14 +98,19 @@ const ProductsPage = () => {
         </Button>
       </Box>
 
+      <Box sx={{ mb: 3 }}>
+        <SearchBox setSearch={handleSearch} placeholder="Buscar producto..." />
+      </Box>
+
       {status === 'loading' && (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
       )}
+
       {status === 'succeeded' && (
         <ProductsDataGrid
-          rows={products}
+          rows={filteredProducts}
           onEdit={handleOpenEditModal}
           onDelete={handleDeleteClick}
         />

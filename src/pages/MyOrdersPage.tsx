@@ -1,18 +1,20 @@
-import { useEffect, useState } from 'react';
+import SearchBox from '@/components/SearchBox';
+import { Box, Typography, Button, CircularProgress } from '@mui/material';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, CircularProgress, Typography } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import ConfirmationModal from '@/components/ConfirmationModal';
-import OrdersDataGrid from '@/components/myOrders/OrdersDataGrid';
-import { deleteOrder, updateOrderStatus } from '../services/orders';
+import ConfirmationModal from '../components/ConfirmationModal';
+import OrdersDataGrid from '../components/myOrders/OrdersDataGrid';
+import { OrderStatusEnum } from '../enums/orderStatusEnum';
+import { useAppDispatch, useAppSelector } from '../hooks/useStore';
+import { updateOrderStatus, deleteOrder } from '../services/orders';
 import {
   selectAllOrders,
   selectOrdersStatus,
   fetchOrders,
 } from '../store/ordersSlice';
-import { useAppDispatch, useAppSelector } from '../hooks/useStore';
-import { OrderStatusEnum } from '../enums/orderStatusEnum';
 import { changerStatus } from '../utils/myOrders/changerStatus';
+import AddIcon from '@mui/icons-material/Add';
+import { OrderModal } from '../schemas/orders/orderModal';
 
 const MyOrdersPage = () => {
   const navigate = useNavigate();
@@ -21,7 +23,8 @@ const MyOrdersPage = () => {
   const orders = useAppSelector(selectAllOrders);
   const status = useAppSelector(selectOrdersStatus);
 
-  const [modalState, setModalState] = useState({ open: false, orderId: '' });
+  const [modalState, setModalState] = useState<OrderModal | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (status === 'idle') {
@@ -29,26 +32,80 @@ const MyOrdersPage = () => {
     }
   }, [status, dispatch]);
 
-  const handleEdit = (id: string) => navigate(`/add-order/${id}`);
+  const handleEdit = useCallback(
+    (id: string, status: OrderStatusEnum) => {
+      if (status !== OrderStatusEnum.PENDING) {
+        setModalState({
+          orderId: '',
+          title: 'Wow',
+          message: 'No se puede editar una orden en progreso o completada',
+          open: true,
+          variant: 2,
+        });
+        return;
+      }
+      navigate(`/add-order/${id}`);
+    },
+    [navigate]
+  );
 
-  const handleStatusChange = (id: string, prevStatus: OrderStatusEnum) => {
-    dispatch(() =>
-      updateOrderStatus(id, {
-        status: changerStatus(prevStatus),
-      })
-    );
-    window.location.reload();
-  };
+  const handleStatusChange = useCallback(
+    (id: string, prevStatus: OrderStatusEnum) => {
+      if (prevStatus !== OrderStatusEnum.COMPLETED) {
+        dispatch(() =>
+          updateOrderStatus(id, {
+            status: changerStatus(prevStatus),
+          })
+        );
+        window.location.reload();
+      }
+    },
+    [dispatch]
+  );
 
-  const handleDeleteClick = (id: string) =>
-    setModalState({ open: true, orderId: id });
+  const handleDeleteClick = useCallback(
+    (id: string, status: OrderStatusEnum) => {
+      if (status === OrderStatusEnum.IN_PROGRESS) {
+        setModalState({
+          orderId: '',
+          title: 'Wow',
+          message: 'No se puede eliminar una orden en progreso',
+          open: true,
+          variant: 2,
+        });
+        return;
+      }
+      setModalState({
+        orderId: id,
+        title: 'Confirmar Eliminación',
+        message:
+          '¿Estás seguro de que deseas eliminar este pedido? Esta acción no se puede deshacer.',
+        open: true,
+      });
+    },
+    []
+  );
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = useCallback(() => {
+    if (!modalState || modalState.variant) {
+      setModalState(null);
+      return;
+    }
     const { orderId } = modalState;
     dispatch(() => deleteOrder(orderId));
-    setModalState({ open: false, orderId: '' });
     window.location.reload();
-  };
+  }, [modalState, dispatch]);
+
+  const filteredOrders = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return orders.filter(
+      order =>
+        order.orderNumber.toLowerCase().includes(term) ||
+        order.status.toLowerCase().includes(term)
+    );
+  }, [orders, searchTerm]);
+
+  const handleSearch = useCallback((value: string) => setSearchTerm(value), []);
 
   return (
     <>
@@ -71,6 +128,10 @@ const MyOrdersPage = () => {
         </Button>
       </Box>
 
+      <Box sx={{ mb: 3 }}>
+        <SearchBox setSearch={handleSearch} />
+      </Box>
+
       {status === 'loading' && (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
@@ -78,7 +139,7 @@ const MyOrdersPage = () => {
       )}
       {status === 'succeeded' && (
         <OrdersDataGrid
-          rows={orders}
+          rows={filteredOrders}
           onEdit={handleEdit}
           onDelete={handleDeleteClick}
           onChangeStatus={handleStatusChange}
@@ -86,11 +147,12 @@ const MyOrdersPage = () => {
       )}
 
       <ConfirmationModal
-        open={modalState.open}
-        onClose={() => setModalState({ open: false, orderId: '' })}
+        open={modalState?.open}
+        onClose={() => setModalState(null)}
         onConfirm={handleConfirmDelete}
-        title="Confirmar Eliminación"
-        message="¿Estás seguro de que deseas eliminar este pedido? Esta acción no se puede deshacer."
+        title={modalState?.title ?? ''}
+        message={modalState?.message ?? ''}
+        variant={modalState?.variant}
       />
     </>
   );
