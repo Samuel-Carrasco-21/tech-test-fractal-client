@@ -3,7 +3,7 @@ import { DataType, ColumnRegular, RevoGrid } from '@revolist/react-datagrid';
 import { CSSProperties, memo } from 'react';
 import { OrderStatusEnum } from '@/enums/orderStatusEnum';
 import { IOrderListResponse } from '@/schemas/orders';
-import { statusTranslator } from '../../utils/myOrders/statusTranslator';
+import { statusTranslator } from '@/utils/myOrders/statusTranslator';
 
 interface Props {
   rows: IOrderListResponse[];
@@ -180,8 +180,7 @@ const OrdersDataGrid = memo(
         />
       </Box>
     );
-  },
-  (prevProps, nextProps) => prevProps.rows.length !== nextProps.rows.length
+  }
 );
 
 export default OrdersDataGrid;

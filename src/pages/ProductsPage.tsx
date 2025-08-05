@@ -49,7 +49,9 @@ const ProductsPage = () => {
   const handleSave = useCallback(
     (data: { name: string; unitPrice: number }) => {
       if (productToEdit) {
-        dispatch(() => updateProduct(productToEdit.id, { ...data }));
+        dispatch(
+          async () => await updateProduct(productToEdit.id, { ...data })
+        );
       } else {
         dispatch(addNewProduct(data));
       }
